@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>丛雨宠物</title>
+  <link rel="stylesheet" href="styles/animations.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 150px;
+      height: 340px;
+      overflow: hidden;
+      background: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* 角色包装层：负责整体动画（呼吸、晃动等） */
+    #pet-wrapper {
+      position: relative;
+      width: 150px;
+      height: 340px;
+      will-change: transform;
+    }
+
+    /* 精灵容器：裁剪显示区域 */
+    #sprite-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 150px;
+      height: 275px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    /*
+      精灵舞台：承载所有PNG图层
+      原始画布：3600x5100
+      刀服身体层位置：(1099, 1763)，尺寸 1589x2912
+      缩放比：150/1589 ≈ 0.0944
+      变换：先平移到角色原点，再缩放
+    */
+    #sprite-stage {
+      position: absolute;
+      width: 3600px;
+      height: 5100px;
+      transform-origin: 0 0;
+      transform: scale(0.0944) translate(-1099px, -1763px);
+    }
+
+    /* 所有PNG图层的基础样式 */
+    #sprite-stage img {
+      position: absolute;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+    }
+
+    /* ---- 身体图层 ---- */
+    #body-normal { left: 1099px; top: 1763px; }
+    #body-arm    { left: 1099px; top: 1763px; display: none; }
+
+    /* ---- 表情图层（坐标来自图层元数据） ---- */
+    #face-base      { left: 1675px; top: 2024px; }
+    #face-smile     { left: 1673px; top: 2031px; display: none; }
+    #face-puzzled   { left: 1677px; top: 2024px; display: none; }
+    #face-surprised { left: 1675px; top: 2016px; display: none; }
+    #face-flustered { left: 1684px; top: 2020px; display: none; }
+    #face-shy       { left: 1682px; top: 2039px; display: none; }
+    #face-serious   { left: 1681px; top: 2028px; display: none; }
+    #face-troubled  { left: 1685px; top: 2045px; display: none; }
+    #face-angry     { left: 1686px; top: 2032px; display: none; }
+    #face-smirk     { left: 1678px; top: 2042px; display: none; }
+    #face-hehe      { left: 1688px; top: 2031px; display: none; }
+
+    /* ---- 效果图层 ---- */
+    #blush        { left: 1705px; top: 2122px; display: none; }
+    #hair-overlay { left: 1669px; top: 2053px; }
+
+    /* ---- 覆盖UI元素（位于 sprite-container 外，相对 pet-wrapper 定位） ---- */
+    #speech-bubble {
+      display: none;
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background: #fff;
+      border: 2px solid #c8a0b0;
+      border-radius: 12px;
+      padding: 5px 10px;
+      font-family: 'MS Gothic', 'Noto Sans JP', sans-serif;
+      font-size: 11px;
+      line-height: 1.5;
+      white-space: pre-line;
+      text-align: center;
+      max-width: 118px;
+      color: #333;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      animation: bubble-pop 0.2s ease-out;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    #zzz-container {
+      display: none;
+      position: absolute;
+      top: 30px;
+      right: 5px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .zzz-item {
+      display: block;
+      color: #9aa0c8;
+      font-family: 'MS Gothic', sans-serif;
+      font-size: 11px;
+      font-weight: bold;
+      opacity: 0;
+    }
+    .zzz-item:nth-child(1) { animation: zzz-float 3s ease-in-out infinite 0s; }
+    .zzz-item:nth-child(2) { animation: zzz-float 3s ease-in-out infinite 1s; font-size: 13px; }
+    .zzz-item:nth-child(3) { animation: zzz-float 3s ease-in-out infinite 2s; font-size: 15px; }
+
+    #exclamation {
+      display: none;
+      position: absolute;
+      top: 30px;
+      right: 5px;
+      font-size: 20px;
+      color: #ff4466;
+      font-family: sans-serif;
+      font-weight: bold;
+      animation: exclaim-pop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="pet-wrapper" class="state-idle">
+
+    <!-- 精灵裁剪容器 -->
+    <div id="sprite-container">
+      <div id="sprite-stage">
+
+        <!-- 身体图层（刀服/巫女装束） -->
+        <img id="body-normal" src="" alt="">
+        <img id="body-arm"    src="" alt="">
+
+        <!-- 表情图层（叠加在身体上） -->
+        <img id="face-base"      class="face-layer" src="" alt="">
+        <img id="face-smile"     class="face-layer" src="" alt="">
+        <img id="face-puzzled"   class="face-layer" src="" alt="">
+        <img id="face-surprised" class="face-layer" src="" alt="">
+        <img id="face-flustered" class="face-layer" src="" alt="">
+        <img id="face-shy"       class="face-layer" src="" alt="">
+        <img id="face-serious"   class="face-layer" src="" alt="">
+        <img id="face-troubled"  class="face-layer" src="" alt="">
+        <img id="face-angry"     class="face-layer" src="" alt="">
+        <img id="face-smirk"     class="face-layer" src="" alt="">
+        <img id="face-hehe"      class="face-layer" src="" alt="">
+
+        <!-- 效果图层 -->
+        <img id="blush"        src="" alt="">
+        <img id="hair-overlay" src="" alt="">
+
+      </div>
+    </div>
+
+    <!-- UI覆盖元素 -->
+    <div id="speech-bubble">ご主人～</div>
+
+    <!-- 气泡曲线箭头：从气泡底部延伸指向角色脸部 -->
+    <!-- 坐标系：pet-wrapper(150×340)；脸部中心约(68, 92) -->
+    <svg id="speech-arrow"
+         style="display:none; position:absolute; top:0; left:0; width:150px; height:110px; pointer-events:none; z-index:9; overflow:visible;"
+         xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- 向右指的三角，orient="auto" 会自动旋转对齐路径切线方向 -->
+        <marker id="arrowhead" markerWidth="7" markerHeight="7"
+                refX="6" refY="3" orient="auto">
+          <polygon points="0 0, 6 3, 0 6" fill="#c8a0b0"/>
+        </marker>
+      </defs>
+      <!-- M=气泡底部右侧出发，C=三次贝塞尔，终点靠近角色面部 -->
+      <path d="M 102 52 C 118 65 86 80 70 92"
+            stroke="#c8a0b0" stroke-width="1.8" fill="none"
+            marker-end="url(#arrowhead)" stroke-linecap="round"/>
+    </svg>
+
+    <div id="zzz-container">
+      <span class="zzz-item">z</span>
+      <span class="zzz-item">zz</span>
+      <span class="zzz-item">zzz</span>
+    </div>
+
+    <div id="exclamation">！</div>
+
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
