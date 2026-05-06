@@ -116,7 +116,7 @@ function setupTray() {
   const iconBuf = createTrayIconBuffer();
   const icon = nativeImage.createFromBuffer(iconBuf);
   tray = new Tray(isLinux ? icon.resize({ width: 22, height: 22 }) : icon);
-  tray.setToolTip('丛雨宠物');
+  tray.setToolTip('丛雨桌宠');
 
   const buildMenu = () => Menu.buildFromTemplate([
     {
