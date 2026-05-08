@@ -174,7 +174,7 @@ function setAutostart(enable) {
     if (enable) {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(file,
-        `[Desktop Entry]\nType=Application\nName=丛雨宠物\nExec=${process.execPath} ${__dirname}\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\n`
+        `[Desktop Entry]\nType=Application\nName=丛雨桌宠\nExec=${process.execPath} ${__dirname}\nHidden=false\nNoDisplay=false\nX-GNOME-Autostart-enabled=true\n`
       );
     } else if (fs.existsSync(file)) fs.unlinkSync(file);
   }

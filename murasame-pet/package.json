@@ -1,6 +1,6 @@
 {
   "name": "murasame-pet",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "丛雨桌面宠物 - 千恋*万花",
   "main": "main.js",
   "scripts": {
@@ -17,7 +17,7 @@
   },
   "build": {
     "appId": "com.murasame.pet",
-    "productName": "丛雨宠物",
+    "productName": "丛雨桌宠",
     "files": ["**/*"],
     "extraResources": [
       { "from": "../fgimages", "to": "fgimages" }
