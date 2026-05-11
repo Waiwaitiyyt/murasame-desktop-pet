@@ -2,7 +2,6 @@ const { app, BrowserWindow, Menu, Tray, screen, ipcMain, nativeImage } = require
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const zlib = require('zlib');
 const Store = require('electron-store');
 
 const store = new Store();
@@ -16,57 +15,6 @@ app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
 let mainWindow = null;
 let tray = null;
 
-// 生成简单的32x32 PNG图标（纯Node.js，无外部依赖）
-function createTrayIconBuffer() {
-  const size = 32;
-
-  function crc32(buf) {
-    let c = 0xFFFFFFFF;
-    for (let i = 0; i < buf.length; i++) {
-      c ^= buf[i];
-      for (let k = 0; k < 8; k++) {
-        c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-      }
-    }
-    return (c ^ 0xFFFFFFFF) >>> 0;
-  }
-
-  function chunk(type, data) {
-    const lenBuf = Buffer.alloc(4);
-    lenBuf.writeUInt32BE(data.length, 0);
-    const td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
-    const crcBuf = Buffer.alloc(4);
-    crcBuf.writeUInt32BE(crc32(td), 0);
-    return Buffer.concat([lenBuf, td, crcBuf]);
-  }
-
-  // 绘制深红圆 + 白色十字（模拟刀形）
-  const raw = Buffer.alloc(size * (1 + size * 4));
-  for (let y = 0; y < size; y++) {
-    raw[y * (1 + size * 4)] = 0; // filter: None
-    for (let x = 0; x < size; x++) {
-      const cx = 16, cy = 16;
-      const r2 = (x - cx) ** 2 + (y - cy) ** 2;
-      const offset = y * (1 + size * 4) + 1 + x * 4;
-      if (r2 <= 196) {
-        raw[offset] = 160; raw[offset+1] = 30; raw[offset+2] = 50; raw[offset+3] = 230;
-        if ((x >= 14 && x <= 17 && y >= 8 && y <= 24) ||
-            (y >= 14 && y <= 17 && x >= 8 && x <= 24)) {
-          raw[offset] = 255; raw[offset+1] = 255; raw[offset+2] = 255; raw[offset+3] = 200;
-        }
-      } else {
-        raw[offset+3] = 0;
-      }
-    }
-  }
-
-  const compressed = zlib.deflateSync(raw);
-  const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8; ihdr[9] = 6; // 位深8，RGBA颜色类型
-  const sig = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  return Buffer.concat([sig, chunk('IHDR', ihdr), chunk('IDAT', compressed), chunk('IEND', Buffer.alloc(0))]);
-}
 
 function createWindow() {
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
@@ -113,8 +61,8 @@ function createWindow() {
 }
 
 function setupTray() {
-  const iconBuf = createTrayIconBuffer();
-  const icon = nativeImage.createFromBuffer(iconBuf);
+  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
+  const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(isLinux ? icon.resize({ width: 22, height: 22 }) : icon);
   tray.setToolTip('丛雨桌宠');
 
