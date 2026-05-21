@@ -60,16 +60,21 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
 }
 
-function setupTray() {
-  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
-  const icon = nativeImage.createFromPath(iconPath);
-  tray = new Tray(isLinux ? icon.resize({ width: 22, height: 22 }) : icon);
-  tray.setToolTip('丛雨桌宠');
+function changeCostume(key) {
+  store.set('costume', key);
+  if (mainWindow) mainWindow.webContents.send('pet-action', 'costume:' + key);
+}
 
-  const buildMenu = () => Menu.buildFromTemplate([
+function buildMenu() {
+  const costume = store.get('costume', 'sword');
+  return Menu.buildFromTemplate([
     {
       label: '让丛雨休息',
       click: () => { if (mainWindow) mainWindow.webContents.send('pet-action', 'sleep'); },
+    },
+    {
+      label: '隐藏丛雨',
+      click: () => { if (mainWindow) mainWindow.hide(); },
     },
     {
       label: '召唤丛雨',
@@ -79,6 +84,14 @@ function setupTray() {
       },
     },
     { type: 'separator' },
+    {
+      label: '外观',
+      submenu: [
+        { label: '刀服', type: 'radio', checked: costume === 'sword',    click: () => changeCostume('sword') },
+        { label: '制服', type: 'radio', checked: costume === 'uniform',  click: () => changeCostume('uniform') },
+        { label: '私服', type: 'radio', checked: costume === 'dress', click: () => changeCostume('dress') },
+      ],
+    },
     {
       label: '设置',
       submenu: [
@@ -91,7 +104,7 @@ function setupTray() {
         {
           label: '置顶显示',
           type: 'checkbox',
-          checked: true,
+          checked: mainWindow ? mainWindow.isAlwaysOnTop() : true,
           click: (item) => { if (mainWindow) mainWindow.setAlwaysOnTop(item.checked); },
         },
       ],
@@ -99,8 +112,23 @@ function setupTray() {
     { type: 'separator' },
     { label: '退出', click: () => app.quit() },
   ]);
+}
 
-  tray.setContextMenu(buildMenu());
+function setupTray() {
+  const iconPath = path.join(__dirname, 'assets', 'icon.ico');
+  const icon = nativeImage.createFromPath(iconPath);
+  tray = new Tray(isLinux ? icon.resize({ width: 22, height: 22 }) : icon);
+  tray.setToolTip('丛雨桌宠');
+
+  if (isWindows) {
+    // Windows 每次右键重建菜单，确保 checkbox 状态最新
+    tray.on('right-click', () => {
+      tray.popUpContextMenu(buildMenu());
+    });
+  } else {
+    tray.setContextMenu(buildMenu());
+  }
+
   tray.on('click', () => {
     if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
   });
@@ -136,6 +164,8 @@ ipcMain.on('toggle-click-through', (event, enable) => {
 
 ipcMain.on('get-platform', (event) => { event.returnValue = process.platform; });
 
+ipcMain.on('get-costume', (event) => { event.returnValue = store.get('costume', 'sword'); });
+
 ipcMain.on('get-fgimages-path', (event) => {
   const devPath  = path.join(__dirname, '..', 'fgimages');
   const prodPath = path.join(process.resourcesPath || '', 'fgimages');
@@ -148,37 +178,7 @@ ipcMain.on('move-window', (event, { x, y }) => {
 
 ipcMain.on('show-context-menu', () => {
   if (!mainWindow) return;
-  const menu = Menu.buildFromTemplate([
-    {
-      label: '让丛雨休息',
-      click: () => mainWindow.webContents.send('pet-action', 'sleep'),
-    },
-    {
-      label: '召唤丛雨',
-      click: () => { mainWindow.show(); mainWindow.webContents.send('pet-action', 'idle'); },
-    },
-    { type: 'separator' },
-    {
-      label: '设置',
-      submenu: [
-        {
-          label: '开机自启',
-          type: 'checkbox',
-          checked: getAutostart(),
-          click: (item) => setAutostart(item.checked),
-        },
-        {
-          label: '置顶显示',
-          type: 'checkbox',
-          checked: mainWindow.isAlwaysOnTop(),
-          click: (item) => mainWindow.setAlwaysOnTop(item.checked),
-        },
-      ],
-    },
-    { type: 'separator' },
-    { label: '退出', click: () => app.quit() },
-  ]);
-  menu.popup({ window: mainWindow });
+  buildMenu().popup({ window: mainWindow });
 });
 
 // ---- 应用生命周期 ----

@@ -14,6 +14,43 @@ function imgSrc(filename) {
   return 'file:///' + fullPath.replace(/\\/g, '/').replace(/^\//, '');
 }
 
+// 服装配置（x/y/w/h 为 PNG 在 3600×5100 原始画布中的裁剪坐标）
+const COSTUME_CONFIGS = {
+  sword:    { body: 'ムラサメa_1950.png', bodyArm: 'ムラサメa_1951.png', x: 1099, y: 1763, w: 1589, h: 2912 },
+  uniform:  { body: 'ムラサメa_1952.png', bodyArm: 'ムラサメa_1953.png', x: 1060, y: 1763, w: 1387, h: 2905 },
+  dress: { body: 'ムラサメa_1978.png', bodyArm: 'ムラサメa_1979.png', x: 1394, y: 1742, w: 1234, h: 2928 },
+};
+
+let currentCostume = 'sword';
+
+function applyCostume(key) {
+  const cfg = COSTUME_CONFIGS[key] || COSTUME_CONFIGS.sword;
+  currentCostume = key;
+
+  // 按宽高同时适配，取最小 scale 保证不裁切
+  const scale = Math.min(150 / cfg.w, 275 / cfg.h);
+
+  // 水平居中：若 body 比 150px 窄，两侧留白
+  const displayW = cfg.w * scale;
+  const marginX  = (150 - displayW) / 2;
+  const xOffset  = cfg.x - marginX / scale;
+
+  document.getElementById('sprite-stage').style.transform =
+    `scale(${scale.toFixed(4)}) translate(-${xOffset.toFixed(1)}px, -${cfg.y}px)`;
+
+  // 关键修复：更新 body 元素在 sprite-stage 内的画布坐标
+  // （CSS 写死了刀服坐标 1099/1763，换装时必须同步修正）
+  const bodyNormal = document.getElementById('body-normal');
+  const bodyArm    = document.getElementById('body-arm');
+  bodyNormal.style.left = cfg.x + 'px';
+  bodyNormal.style.top  = cfg.y + 'px';
+  bodyArm.style.left    = cfg.x + 'px';
+  bodyArm.style.top     = cfg.y + 'px';
+
+  bodyNormal.src = imgSrc(cfg.body);
+  bodyArm.src    = imgSrc(cfg.bodyArm);
+}
+
 // 图层文件映射（ID → 文件名）
 const LAYER_FILES = {
   'body-normal':    'ムラサメa_1950.png',
@@ -366,6 +403,7 @@ function initClickThrough(container) {
 
 document.addEventListener('DOMContentLoaded', () => {
   initLayers();
+  applyCostume(ipcRenderer.sendSync('get-costume'));
 
   const stateMachine = new PetStateMachine();
   const container = document.getElementById('sprite-container');
@@ -432,6 +470,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 主进程托盘菜单指令
   ipcRenderer.on('pet-action', (event, action) => {
+    if (action.startsWith('costume:')) {
+      applyCostume(action.slice('costume:'.length));
+      return;
+    }
     switch (action) {
       case 'sleep':
         stateMachine.transition('sleep');
