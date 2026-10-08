@@ -1,6 +1,6 @@
 {
   "name": "murasame-pet",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "丛雨桌面宠物 - 千恋*万花",
   "main": "main.js",
   "scripts": {
@@ -25,6 +25,23 @@
     "win": {
       "target": "nsis",
       "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "丛雨桌宠",
+      "runAfterFinish": true,
+      "displayLanguageSelector": true,
+      "installerLanguages": ["zh_CN", "en_US", "ja_JP"],
+      "language": "2052",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "linux": {
       "target": "AppImage",
