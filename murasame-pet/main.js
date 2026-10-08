@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const Store = require('electron-store');
+const { languageNames, detectLanguage, translator } = require('./i18n');
 
 const store = new Store();
 const isWindows = process.platform === 'win32';
@@ -65,19 +66,30 @@ function changeCostume(key) {
   if (mainWindow) mainWindow.webContents.send('pet-action', 'costume:' + key);
 }
 
+function getLanguage() {
+  return store.get('language', detectLanguage(app.getLocale()));
+}
+
+function changeLanguage(lang) {
+  store.set('language', lang);
+  refreshTray();
+}
+
 function buildMenu() {
   const costume = store.get('costume', 'sword');
+  const lang = getLanguage();
+  const t = translator(lang);
   return Menu.buildFromTemplate([
     {
-      label: '让丛雨休息',
+      label: t('sleep'),
       click: () => { if (mainWindow) mainWindow.webContents.send('pet-action', 'sleep'); },
     },
     {
-      label: '隐藏丛雨',
+      label: t('hide'),
       click: () => { if (mainWindow) mainWindow.hide(); },
     },
     {
-      label: '召唤丛雨',
+      label: t('summon'),
       click: () => {
         if (mainWindow) { mainWindow.show(); mainWindow.webContents.send('pet-action', 'idle'); }
         else createWindow();
@@ -85,49 +97,63 @@ function buildMenu() {
     },
     { type: 'separator' },
     {
-      label: '外观',
+      label: t('costume'),
       submenu: [
-        { label: '刀服', type: 'radio', checked: costume === 'sword',    click: () => changeCostume('sword') },
-        { label: '制服', type: 'radio', checked: costume === 'uniform',  click: () => changeCostume('uniform') },
-        { label: '私服', type: 'radio', checked: costume === 'dress', click: () => changeCostume('dress') },
+        { label: t('sword'),   type: 'radio', checked: costume === 'sword',   click: () => changeCostume('sword') },
+        { label: t('uniform'), type: 'radio', checked: costume === 'uniform', click: () => changeCostume('uniform') },
+        { label: t('dress'),   type: 'radio', checked: costume === 'dress',   click: () => changeCostume('dress') },
       ],
     },
     {
-      label: '设置',
+      label: t('settings'),
       submenu: [
         {
-          label: '开机自启',
+          label: t('autostart'),
           type: 'checkbox',
           checked: getAutostart(),
           click: (item) => setAutostart(item.checked),
         },
         {
-          label: '置顶显示',
+          label: t('alwaysOnTop'),
           type: 'checkbox',
           checked: mainWindow ? mainWindow.isAlwaysOnTop() : true,
           click: (item) => { if (mainWindow) mainWindow.setAlwaysOnTop(item.checked); },
         },
+        {
+          label: t('language'),
+          submenu: Object.entries(languageNames).map(([key, name]) => ({
+            label: name,
+            type: 'radio',
+            checked: lang === key,
+            click: () => changeLanguage(key),
+          })),
+        },
       ],
     },
     { type: 'separator' },
-    { label: '退出', click: () => app.quit() },
+    { label: t('quit'), click: () => app.quit() },
   ]);
+}
+
+// 语言切换后刷新托盘提示与菜单（Windows 每次右键都会重建，无需 setContextMenu）
+function refreshTray() {
+  if (!tray) return;
+  tray.setToolTip(translator(getLanguage())('appName'));
+  if (!isWindows) tray.setContextMenu(buildMenu());
 }
 
 function setupTray() {
   const iconPath = path.join(__dirname, 'assets', 'icon.ico');
   const icon = nativeImage.createFromPath(iconPath);
   tray = new Tray(isLinux ? icon.resize({ width: 22, height: 22 }) : icon);
-  tray.setToolTip('丛雨桌宠');
 
   if (isWindows) {
     // Windows 每次右键重建菜单，确保 checkbox 状态最新
     tray.on('right-click', () => {
       tray.popUpContextMenu(buildMenu());
     });
-  } else {
-    tray.setContextMenu(buildMenu());
   }
+  refreshTray();
 
   tray.on('click', () => {
     if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();

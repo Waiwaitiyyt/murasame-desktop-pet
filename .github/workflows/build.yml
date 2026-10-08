@@ -1,0 +1,72 @@
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win
+            artifact: murasame-pet/dist/*.exe
+          - os: ubuntu-latest
+            target: linux
+            artifact: murasame-pet/dist/*.AppImage
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: murasame-pet
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: murasame-pet/package-lock.json
+
+      - run: npm ci
+
+      # 仓库只有 icon.ico，Linux 打包需要 icon.png，从 ico 中取最大的一帧转换
+      - name: Generate icon.png
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y imagemagick
+          convert assets/icon.ico -set filename:s '%w' /tmp/icon-%[filename:s].png
+          largest=$(ls /tmp/icon-*.png | sort -t- -k2 -n | tail -1)
+          cp "$largest" assets/icon.png
+          identify assets/icon.png
+
+      - name: Build
+        run: npx electron-builder --${{ matrix.target }} --publish never
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: murasame-pet-${{ matrix.target }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
